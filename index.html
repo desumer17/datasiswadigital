@@ -358,6 +358,35 @@
         // ==========================================
         // SISWA DASHBOARD LOGIC (DYNAMIC TABS)
         // ==========================================
+        // Fungsi pintar untuk mengubah segala format tanggal Google Sheets ke format HTML (YYYY-MM-DD)
+        function konversiTanggalKeHTML(dateStr) {
+            if (!dateStr || dateStr === '-') return '';
+            
+            // 1. Jika formatnya sudah benar YYYY-MM-DD, langsung gunakan
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+            
+            // 2. Jika formatnya DD/MM/YYYY atau DD-MM-YYYY (Umum di Google Sheets)
+            let parts = dateStr.toString().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (parts) {
+                let day = parts[1].padStart(2, '0');
+                let month = parts[2].padStart(2, '0');
+                let year = parts[3];
+                return `${year}-${month}-${day}`;
+            }
+            
+            // 3. Jika formatnya berupa objek waktu / ISO standar bawaan Google
+            try {
+                let d = new Date(dateStr);
+                if (!isNaN(d.getTime())) {
+                    let y = d.getFullYear();
+                    let m = String(d.getMonth() + 1).padStart(2, '0');
+                    let day = String(d.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                }
+            } catch (e) {}
+            
+            return '';
+        }
         function buildSiswaDashboard() {
             document.getElementById('siswa-nisn-display').innerText = appState.studentData.nisn;
             
@@ -547,7 +576,10 @@
                 if(fieldDef.type === 'currency' && value) {
                     input.value = "Rp " + new Intl.NumberFormat('id-ID').format(value);
                     input.setAttribute('data-raw-value', value);
-                } else if(fieldDef.type !== 'currency') {
+                } else if(fieldDef.type === 'date') {
+                    // BARIS BARU: Menggunakan fungsi pintar untuk tanggal
+                    input.value = konversiTanggalKeHTML(value);
+                } else {
                     input.value = value || '';
                 }
 
