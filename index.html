@@ -37,7 +37,15 @@
             .cv-row { display: flex; margin-bottom: 5px; page-break-inside: avoid;}
             .cv-label { width: 35%; font-weight: 600; }
             .cv-value { width: 65%; }
-            .cv-photo { max-width: 150px; border-radius: 8px; margin: 0 auto 15px auto; display: block; }
+            .cv-photo { 
+            width: 150px; 
+            height: 150px; 
+            object-fit: cover; /* Agar foto tidak gepeng */
+            border-radius: 50%; /* Membuat foto menjadi bulat */
+            margin: 0 auto 20px auto; 
+            display: block; 
+            border: 4px solid #e5e7eb; /* Garis tepi abu-abu tipis */
+        }
         }
         .print-only { display: none; }
     </style>
@@ -735,6 +743,14 @@
                     let displayVal = val;
                     if(field.type === 'currency' && val !== '-') {
                         displayVal = "Rp " + new Intl.NumberFormat('id-ID').format(val);
+                    } else if (field.type === 'date' && val !== '-') {
+                        // Mengubah format ISO menjadi format tanggal Indonesia (cth: 16 Mei 2026)
+                        try {
+                            let d = new Date(val);
+                            if (!isNaN(d.getTime())) {
+                                displayVal = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+                            }
+                        } catch(e) {}
                     }
 
                     // For Screen rendering
@@ -743,8 +759,12 @@
                     
                     let valHtml = `<span class="text-gray-800 font-medium">${displayVal}</span>`;
                     
-                    if (field.type === 'file' && val !== '-') {
-                        if(field.label.toLowerCase().includes('foto')) photoUrl = val; // save for print
+                        if (field.type === 'file' && val !== '-') {
+                        if(field.label.toLowerCase().includes('foto')) {
+                            // Mengubah link Google Drive biasa menjadi link penampil gambar langsung
+                            let match = val.toString().match(/\/d\/(.+?)\//);
+                            photoUrl = match ? `https://drive.google.com/thumbnail?id=${match[1]}&sz=w500` : val;
+                        }
                         valHtml = `<a href="${val}" target="_blank" class="text-blue-600 underline text-sm"><i class="fas fa-external-link-alt"></i> Lihat Berkas</a>`;
                     } else if (field.type === 'phone' && val !== '-') {
                         // Remove apostrophe if exists from Google Sheet
@@ -760,8 +780,8 @@
                     row.innerHTML = `<span class="text-sm text-gray-500 uppercase tracking-wider">${field.label}</span> ${valHtml}`;
                     section.appendChild(row);
 
-                    // For Print Rendering (only non-files or basic files)
-                    if(field.type !== 'file' || field.label.toLowerCase().includes('foto')){
+		// For Print Rendering (Sembunyikan teks baris Foto jika foto sudah tampil di atas)
+                    if(field.type !== 'file' || (field.type === 'file' && !field.label.toLowerCase().includes('foto'))){
                         const pRow = document.createElement('div');
                         pRow.className = 'cv-row';
                         pRow.innerHTML = `<div class="cv-label">${field.label}</div><div class="cv-value">: ${field.type === 'file' ? 'Terlampir' : displayVal}</div>`;
