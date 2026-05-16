@@ -381,6 +381,19 @@
             navContainer.innerHTML = '';
             contentContainer.innerHTML = '';
 
+            // --- MENDETEKSI KELAS SISWA ---
+            let kelasSiswa = 6; // Default jika alumni/tidak ketemu dianggap kelas max
+            if ((appState.studentData.status || '').toLowerCase() !== 'alumni') {
+                for (let key in appState.studentData.fields) {
+                    if (key.toLowerCase().includes('kelas')) {
+                        let val = appState.studentData.fields[key];
+                        let match = val ? val.toString().match(/\d+/) : null; // Ambil angkanya saja
+                        if (match) kelasSiswa = parseInt(match[0]);
+                        break;
+                    }
+                }
+            }
+
             let firstTab = true;
             for (let tabName in tabsMap) {
                 const safeTabId = 'tab_' + tabName.replace(/\s+/g, '_');
@@ -397,9 +410,25 @@
                 contentDiv.id = safeTabId;
                 contentDiv.className = `tab-content-panel space-y-4 ${firstTab ? 'block' : 'hidden'}`;
                 
-                // Render Fields
+                // Render Fields DENGAN FILTER
                 tabsMap[tabName].forEach(field => {
-                    contentDiv.appendChild(renderInputField(field, appState.studentData.fields[field.headerName]));
+                    let sembunyikan = false;
+                    let label = field.label.toLowerCase();
+                    
+                    // Filter Rapor di atas kelasnya
+                    if (label.includes('rapor') && label.includes('kelas')) {
+                        let match = label.match(/kelas\s*(\d+)/);
+                        if (match && parseInt(match[1]) > kelasSiswa) sembunyikan = true;
+                    }
+                    // Filter Ijazah/Kelulusan jika belum kelas 6
+                    if ((label.includes('ijazah') || label.includes('lulus')) && kelasSiswa < 6) {
+                        sembunyikan = true;
+                    }
+                    
+                    // Tampilkan hanya jika tidak disembunyikan
+                    if (!sembunyikan) {
+                        contentDiv.appendChild(renderInputField(field, appState.studentData.fields[field.headerName]));
+                    }
                 });
 
                 contentContainer.appendChild(contentDiv);
@@ -740,6 +769,19 @@
 
             // Extract Photo for Print Layout
             let photoUrl = '';
+
+            // --- MENDETEKSI KELAS SISWA UNTUK TAMPILAN GURU & CETAK ---
+            let kelasSiswa = 6; // Default jika alumni
+            if ((student.status || '').toLowerCase() !== 'alumni') {
+                for (let key in student.fields) {
+                    if (key.toLowerCase().includes('kelas')) {
+                        let val = student.fields[key];
+                        let match = val ? val.toString().match(/\d+/) : null;
+                        if (match) kelasSiswa = parseInt(match[0]);
+                        break;
+                    }
+                }
+            }
             
             for (let tabName in tabsMap) {
                 // --- For Screen ---
@@ -753,6 +795,24 @@
                 printSection.innerHTML = `<div class="cv-section-title">${tabName}</div>`;
 
                 tabsMap[tabName].forEach(field => {
+                    // --- LOGIKA FILTER KELAS ---
+                    let sembunyikan = false;
+                    let label = field.label.toLowerCase();
+                    
+                    // Filter Rapor di atas kelasnya
+                    if (label.includes('rapor') && label.includes('kelas')) {
+                        let match = label.match(/kelas\s*(\d+)/);
+                        if (match && parseInt(match[1]) > kelasSiswa) sembunyikan = true;
+                    }
+                    // Filter Ijazah/Kelulusan jika belum kelas 6
+                    if ((label.includes('ijazah') || label.includes('lulus')) && kelasSiswa < 6) {
+                        sembunyikan = true;
+                    }
+                    
+                    // Jika harus disembunyikan, lewati form ini!
+                    if (sembunyikan) return; 
+
+                    // ==========================================
                     let val = student.fields[field.headerName] || '-';
                     
                     // Format output
@@ -775,7 +835,7 @@
                     
                     let valHtml = `<span class="text-gray-800 font-medium">${displayVal}</span>`;
                     
-                        if (field.type === 'file' && val !== '-') {
+                    if (field.type === 'file' && val !== '-') {
                         if(field.label.toLowerCase().includes('foto')) {
                             // Mengubah link Google Drive biasa menjadi link penampil gambar langsung
                             let match = val.toString().match(/\/d\/(.+?)\//);
@@ -796,7 +856,7 @@
                     row.innerHTML = `<span class="text-sm text-gray-500 uppercase tracking-wider">${field.label}</span> ${valHtml}`;
                     section.appendChild(row);
 
-		// For Print Rendering (Sembunyikan teks baris Foto jika foto sudah tampil di atas)
+                    // For Print Rendering (Sembunyikan teks baris Foto jika foto sudah tampil di atas)
                     if(field.type !== 'file' || (field.type === 'file' && !field.label.toLowerCase().includes('foto'))){
                         const pRow = document.createElement('div');
                         pRow.className = 'cv-row';
@@ -805,8 +865,11 @@
                     }
                 });
 
-                container.appendChild(section);
-                printContainer.appendChild(printSection);
+                // Cek apakah ada data yang berhasil masuk. Jika tidak ada (kosong karena difilter), sembunyikan kotak judul tab-nya.
+                if (section.children.length > 1) {
+                    container.appendChild(section);
+                    printContainer.appendChild(printSection);
+                }
             }
 
             // Insert Photo to Print Layout if exists
