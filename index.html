@@ -110,6 +110,10 @@
 
             <!-- Form Guru -->
             <form id="form-login-guru" class="hidden" onsubmit="handleLoginGuru(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold mb-1">Username Admin</label>
+                    <input type="text" id="login-user" required class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan Username">
+                </div>
                 <div class="mb-6">
                     <label class="block text-sm font-semibold mb-1">Password Sistem</label>
                     <input type="password" id="login-pass" required class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan Password">
@@ -184,7 +188,7 @@
         // CONFIGURATION
         // ==========================================
         // WAJIB DIGANTI: Ganti URL di bawah dengan URL Web App dari Google Apps Script Anda
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzhIEzCeHwXByzMoHyRi1DsCp4oT17tZuw7HCJSyVFXwjzIXLfbZDfDXEsNgpeKNDu2/exec'; 
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbw7sjdaWIggAWOYAePBo67F1bf_goyn7OS2AsiZV9Rjb_kw38285m_o9wvZJeisnQmP/exec'; 
 
         // ==========================================
         // STATE MANAGEMENT
@@ -315,10 +319,12 @@
 
         async function handleLoginGuru(e) {
             e.preventDefault();
+            const user = document.getElementById('login-user').value; // Baris baru untuk mengambil username
             const pass = document.getElementById('login-pass').value;
             
             showLoading('Otentikasi Guru...');
-            const res = await fetchGAS({ action: 'loginGuru', password: pass });
+            // Parameter username sekarang ditambahkan ke proses pengecekan
+            const res = await fetchGAS({ action: 'loginGuru', username: user, password: pass });
             hideLoading();
 
             if (res && res.status === 'success') {
