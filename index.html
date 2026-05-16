@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Manajemen Data Siswa Digital</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome & SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        /* Custom Styles & PWA adjustments */
+        body { -webkit-tap-highlight-color: transparent; }
+        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: bold; }
+        
+        /* Loader */
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
+
+        /* Print Layout (CV Style) */
+        @media print {
+            body { background: white; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            #app-container { max-width: 100%; padding: 0; box-shadow: none; }
+            .cv-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+            .cv-section { margin-bottom: 15px; }
+            .cv-section-title { font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
+            .cv-row { display: flex; margin-bottom: 5px; page-break-inside: avoid;}
+            .cv-label { width: 35%; font-weight: 600; }
+            .cv-value { width: 65%; }
+            .cv-photo { max-width: 150px; border-radius: 8px; margin: 0 auto 15px auto; display: block; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans antialiased">
+
+    <!-- Loading Overlay -->
+    <div id="overlay">
+        <div class="loader mb-2"></div>
+        <p class="text-blue-600 font-semibold" id="loading-text">Memproses Data...</p>
+    </div>
+
+    <!-- PWA Install Banner -->
+    <div id="install-banner" class="hidden bg-blue-600 text-white p-4 flex justify-between items-center shadow-md no-print fixed top-0 w-full z-50">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-download text-2xl"></i>
+            <div>
+                <p class="font-bold">Instal Aplikasi Siswa</p>
+                <p class="text-xs">Akses lebih cepat dari layar utama HP Anda</p>
+            </div>
+        </div>
+        <button id="btn-install" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold text-sm shadow">Instal</button>
+    </div>
+
+    <!-- Main Container -->
+    <div id="app-container" class="max-w-md mx-auto min-h-screen bg-white shadow-lg relative pt-12">
+        
+        <!-- HEADER -->
+        <header class="bg-blue-600 text-white p-4 sticky top-0 z-40 shadow-md no-print">
+            <div class="flex justify-between items-center">
+                <h1 class="text-lg font-bold"><i class="fas fa-graduation-cap mr-2"></i>Data Siswa Digital</h1>
+                <button id="btn-logout" class="hidden text-sm hover:text-blue-200" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+            </div>
+        </header>
+
+        <!-- VIEW: LOGIN -->
+        <div id="view-login" class="p-6">
+            <div class="text-center mb-8 mt-4">
+                <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Logo" class="w-24 mx-auto mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Selamat Datang</h2>
+                <p class="text-sm text-gray-500">Silakan login untuk melanjutkan</p>
+            </div>
+
+            <!-- Login Tabs -->
+            <div class="flex border-b mb-6">
+                <button class="flex-1 py-2 text-center tab-active" id="tab-login-siswa" onclick="switchLoginTab('siswa')">Siswa</button>
+                <button class="flex-1 py-2 text-center text-gray-500" id="tab-login-guru" onclick="switchLoginTab('guru')">Guru/Admin</button>
+            </div>
+
+            <!-- Form Siswa -->
+            <form id="form-login-siswa" onsubmit="handleLoginSiswa(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold mb-1">NISN</label>
+                    <input type="number" id="login-nisn" required class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan NISN">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-1">Tanggal Lahir</label>
+                    <input type="date" id="login-tgl" required class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition shadow-md">Masuk sebagai Siswa</button>
+            </form>
+
+            <!-- Form Guru -->
+            <form id="form-login-guru" class="hidden" onsubmit="handleLoginGuru(event)">
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-1">Password Sistem</label>
+                    <input type="password" id="login-pass" required class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan Password">
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition shadow-md">Masuk sebagai Guru</button>
+            </form>
+        </div>
+
+        <!-- VIEW: SISWA DASHBOARD -->
+        <div id="view-siswa" class="hidden pb-20 no-print">
+            <div class="p-4 bg-blue-50 border-b">
+                <p class="text-sm text-gray-500">Login sebagai:</p>
+                <p class="font-bold text-lg" id="siswa-nisn-display">-</p>
+                <span id="siswa-status-badge" class="inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Aktif</span>
+            </div>
+
+            <!-- Dynamic Tabs Navigation -->
+            <div class="overflow-x-auto whitespace-nowrap bg-white border-b flex px-2" id="siswa-tabs-nav">
+                <!-- Generated by JS -->
+            </div>
+
+            <!-- Dynamic Tab Content -->
+            <div id="siswa-tabs-content" class="p-4">
+                <!-- Generated by JS -->
+            </div>
+            
+            <div class="p-4 border-t sticky bottom-0 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                 <button onclick="saveAllSiswaData()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-blue-700"><i class="fas fa-save mr-2"></i> Simpan Semua Perubahan</button>
+            </div>
+        </div>
+
+        <!-- VIEW: GURU DASHBOARD -->
+        <div id="view-guru" class="hidden no-print">
+            <div class="p-4 bg-gray-50">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
+                    <input type="text" id="search-siswa" onkeyup="filterSiswa()" class="w-full border rounded-lg pl-10 p-3 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Cari nama atau NISN siswa...">
+                </div>
+            </div>
+            <div id="list-siswa" class="divide-y">
+                <!-- List generated by JS -->
+            </div>
+        </div>
+
+        <!-- VIEW: GURU - DETAIL SISWA -->
+        <div id="view-guru-detail" class="hidden no-print pb-20">
+            <div class="p-4 border-b flex items-center gap-3 bg-gray-50 sticky top-[60px] z-30">
+                <button onclick="closeDetailSiswa()" class="text-blue-600 p-2"><i class="fas fa-arrow-left"></i> Kembali</button>
+                <div class="flex-1"></div>
+                <button onclick="window.print()" class="bg-gray-800 text-white px-3 py-1.5 rounded text-sm"><i class="fas fa-print"></i> Cetak CV</button>
+            </div>
+            <div id="detail-siswa-content" class="p-4">
+                <!-- Generated by JS -->
+            </div>
+        </div>
+
+        <!-- PRINT LAYOUT (Hidden from screen, shown on print) -->
+        <div id="print-layout" class="print-only p-8">
+            <div class="cv-header">
+<h1 class="text-3xl font-bold uppercase">Biodata Siswa</h1>
+<p class="text-3xl font-bold uppercase mt-1 text-gray-800">SD Negeri 17 Dauh Puri</p>
+            </div>
+            <div id="print-content">
+                <!-- Generated dynamically for print -->
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        // WAJIB DIGANTI: Ganti URL di bawah dengan URL Web App dari Google Apps Script Anda
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzhIEzCeHwXByzMoHyRi1DsCp4oT17tZuw7HCJSyVFXwjzIXLfbZDfDXEsNgpeKNDu2/exec'; 
+
+        // ==========================================
+        // STATE MANAGEMENT
+        // ==========================================
+        let appState = {
+            role: null,
+            formStructure: [],
+            studentData: null,
+            allStudents: [],
+            pendingUpdates: {} // Store changes before saving
+        };
+
+        // ==========================================
+        // PWA INSTALLATION LOGIC
+        // ==========================================
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-banner').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-install').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    document.getElementById('install-banner').classList.add('hidden');
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        // ==========================================
+        // UI HELPERS
+        // ==========================================
+        function showLoading(text = 'Memproses...') {
+            document.getElementById('loading-text').innerText = text;
+            document.getElementById('overlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        function switchView(viewId) {
+            ['view-login', 'view-siswa', 'view-guru', 'view-guru-detail'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+            document.getElementById('btn-logout').classList.toggle('hidden', viewId === 'view-login');
+        }
+
+        function switchLoginTab(role) {
+            if(role === 'siswa'){
+                document.getElementById('tab-login-siswa').classList.add('tab-active', 'text-blue-600');
+                document.getElementById('tab-login-siswa').classList.remove('text-gray-500');
+                document.getElementById('tab-login-guru').classList.remove('tab-active', 'text-blue-600');
+                document.getElementById('tab-login-guru').classList.add('text-gray-500');
+                document.getElementById('form-login-siswa').classList.remove('hidden');
+                document.getElementById('form-login-guru').classList.add('hidden');
+            } else {
+                document.getElementById('tab-login-guru').classList.add('tab-active', 'text-blue-600');
+                document.getElementById('tab-login-guru').classList.remove('text-gray-500');
+                document.getElementById('tab-login-siswa').classList.remove('tab-active', 'text-blue-600');
+                document.getElementById('tab-login-siswa').classList.add('text-gray-500');
+                document.getElementById('form-login-guru').classList.remove('hidden');
+                document.getElementById('form-login-siswa').classList.add('hidden');
+            }
+        }
+
+        function formatCurrencyInput(input) {
+            // Hapus karakter selain angka
+            let value = input.value.replace(/\D/g, "");
+            if(value === "") { input.value = ""; return; }
+            // Format pakai titik pemisah ribuan dan prefix Rp
+            input.value = "Rp " + new Intl.NumberFormat('id-ID').format(value);
+            // Simpan raw value di attribute custom untuk disimpan ke db
+            input.setAttribute('data-raw-value', value);
+            appState.pendingUpdates[input.name] = value;
+        }
+
+        // ==========================================
+        // API COMMUNICATION
+        // ==========================================
+        async function fetchGAS(payload) {
+            if(!GAS_URL || GAS_URL.includes('MASUKKAN_URL')) {
+                Swal.fire('Error', 'URL Apps Script belum disetting di kode HTML.', 'error');
+                throw new Error('URL Not Set');
+            }
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                return await response.json();
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                Swal.fire('Koneksi Gagal', 'Pastikan internet stabil dan Apps Script URL benar.', 'error');
+                return null;
+            }
+        }
+
+        // ==========================================
+        // AUTHENTICATION LOGIC
+        // ==========================================
+        async function handleLoginSiswa(e) {
+            e.preventDefault();
+            const nisn = document.getElementById('login-nisn').value;
+            const tgl = document.getElementById('login-tgl').value;
+            
+            showLoading('Mencari data siswa...');
+            const res = await fetchGAS({ action: 'loginSiswa', nisn: nisn, tglLahir: tgl });
+            hideLoading();
+
+            if (res && res.status === 'success') {
+                appState.role = 'siswa';
+                appState.formStructure = res.formStructure;
+                appState.studentData = res.data;
+                appState.pendingUpdates = {};
+                buildSiswaDashboard();
+                switchView('view-siswa');
+            } else if (res) {
+                Swal.fire('Gagal', res.message, 'error');
+            }
+        }
+
+        async function handleLoginGuru(e) {
+            e.preventDefault();
+            const pass = document.getElementById('login-pass').value;
+            
+            showLoading('Otentikasi Guru...');
+            const res = await fetchGAS({ action: 'loginGuru', password: pass });
+            hideLoading();
+
+            if (res && res.status === 'success') {
+                appState.role = 'guru';
+                appState.formStructure = res.formStructure;
+                appState.allStudents = res.students;
+                buildGuruDashboard();
+                switchView('view-guru');
+            } else if(res) {
+                Swal.fire('Gagal', res.message, 'error');
+            }
+        }
+
+        function logout() {
+            appState = { role: null, formStructure: [], studentData: null, allStudents: [], pendingUpdates: {} };
+            document.getElementById('form-login-siswa').reset();
+            document.getElementById('form-login-guru').reset();
+            switchView('view-login');
+        }
+
+        // ==========================================
+        // SISWA DASHBOARD LOGIC (DYNAMIC TABS)
+        // ==========================================
+        function buildSiswaDashboard() {
+            document.getElementById('siswa-nisn-display').innerText = appState.studentData.nisn;
+            
+            const badge = document.getElementById('siswa-status-badge');
+            badge.innerText = appState.studentData.status || 'Aktif';
+            if((appState.studentData.status||'').toLowerCase() === 'alumni'){
+                badge.className = 'inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-800';
+            } else {
+                badge.className = 'inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800';
+            }
+
+            // Group fields by Tab
+            const tabsMap = {};
+            appState.formStructure.forEach(field => {
+                if(!tabsMap[field.tab]) tabsMap[field.tab] = [];
+                tabsMap[field.tab].push(field);
+            });
+
+            const navContainer = document.getElementById('siswa-tabs-nav');
+            const contentContainer = document.getElementById('siswa-tabs-content');
+            navContainer.innerHTML = '';
+            contentContainer.innerHTML = '';
+
+            let firstTab = true;
+            for (let tabName in tabsMap) {
+                const safeTabId = 'tab_' + tabName.replace(/\s+/g, '_');
+                
+                // Create Nav Button
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-3 text-sm font-semibold whitespace-nowrap transition-colors ${firstTab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 border-b-2 border-transparent'}`;
+                btn.innerText = tabName;
+                btn.onclick = () => switchSiswaTab(safeTabId, btn);
+                navContainer.appendChild(btn);
+
+                // Create Content Div
+                const contentDiv = document.createElement('div');
+                contentDiv.id = safeTabId;
+                contentDiv.className = `tab-content-panel space-y-4 ${firstTab ? 'block' : 'hidden'}`;
+                
+                // Render Fields
+                tabsMap[tabName].forEach(field => {
+                    contentDiv.appendChild(renderInputField(field, appState.studentData.fields[field.headerName]));
+                });
+
+                contentContainer.appendChild(contentDiv);
+                firstTab = false;
+            }
+        }
+
+        function switchSiswaTab(tabId, btnElement) {
+            // Reset Nav
+            const navs = document.getElementById('siswa-tabs-nav').children;
+            for(let n of navs) {
+                n.className = 'px-4 py-3 text-sm font-semibold whitespace-nowrap transition-colors text-gray-500 border-b-2 border-transparent';
+            }
+            btnElement.className = 'px-4 py-3 text-sm font-semibold whitespace-nowrap transition-colors text-blue-600 border-b-2 border-blue-600';
+
+            // Reset Content
+            const panels = document.getElementsByClassName('tab-content-panel');
+            for(let p of panels) p.classList.add('hidden');
+            document.getElementById(tabId).classList.remove('hidden');
+        }
+
+        // ==========================================
+        // DYNAMIC FORM RENDERER
+        // ==========================================
+        function renderInputField(fieldDef, value) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'bg-white p-3 rounded-lg border shadow-sm';
+            
+            const label = document.createElement('label');
+            label.className = 'block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wider';
+            label.innerText = fieldDef.label;
+            wrapper.appendChild(label);
+
+            const isAlumni = (appState.studentData.status || '').toLowerCase() === 'alumni';
+
+            // Tipe File / Gambar / PDF
+            if (fieldDef.type === 'file') {
+                const fileUI = document.createElement('div');
+                
+                // Jika sudah ada isinya (URL)
+                if (value && value.toString().startsWith('http')) {
+                    const link = document.createElement('a');
+                    link.href = value;
+                    link.target = '_blank';
+                    link.className = 'text-blue-600 text-sm underline break-all block mb-2';
+                    link.innerHTML = '<i class="fas fa-external-link-alt"></i> Lihat Berkas Tersimpan';
+                    fileUI.appendChild(link);
+                }
+
+                if(!isAlumni){
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = 'image/*,application/pdf';
+                    fileInput.className = 'block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer';
+                    
+                    const uploadBtn = document.createElement('button');
+                    uploadBtn.className = 'mt-2 bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-300 transition w-full';
+                    uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Kompres & Upload';
+                    uploadBtn.onclick = () => processFileUpload(fileInput, fieldDef);
+
+                    fileUI.appendChild(fileInput);
+                    fileUI.appendChild(uploadBtn);
+                }
+                wrapper.appendChild(fileUI);
+            } 
+            // Tipe Pilihan (Select)
+            else if (fieldDef.type.startsWith('select:')) {
+                const options = fieldDef.type.split(':')[1].split(',');
+                const select = document.createElement('select');
+                select.className = 'w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50';
+                select.name = fieldDef.headerName;
+                select.disabled = isAlumni;
+                
+                const defOpt = document.createElement('option');
+                defOpt.value = ''; defOpt.innerText = '-- Pilih --';
+                select.appendChild(defOpt);
+
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt; option.innerText = opt;
+                    if(value === opt) option.selected = true;
+                    select.appendChild(option);
+                });
+                
+                select.onchange = (e) => { appState.pendingUpdates[e.target.name] = e.target.value; };
+                wrapper.appendChild(select);
+            }
+            // Tipe TextArea
+            else if (fieldDef.type === 'textarea') {
+                const input = document.createElement('textarea');
+                input.className = 'w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50';
+                input.rows = 3;
+                input.name = fieldDef.headerName;
+                input.value = value || '';
+                input.disabled = isAlumni;
+                input.onchange = (e) => { appState.pendingUpdates[e.target.name] = e.target.value; };
+                wrapper.appendChild(input);
+            }
+            // Tipe Default (Text, Date, Currency, Phone)
+            else {
+                const input = document.createElement('input');
+                input.className = 'w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50';
+                input.name = fieldDef.headerName;
+                input.disabled = isAlumni;
+                
+                if (fieldDef.type === 'date') input.type = 'date';
+                else if (fieldDef.type === 'number') input.type = 'number';
+                else if (fieldDef.type === 'phone') {
+                    input.type = 'tel';
+                    input.placeholder = "0812xxxxxx";
+                    input.value = value || '';
+                }
+                else input.type = 'text';
+
+                // Handle initial value formatting
+                if(fieldDef.type === 'currency' && value) {
+                    input.value = "Rp " + new Intl.NumberFormat('id-ID').format(value);
+                    input.setAttribute('data-raw-value', value);
+                } else if(fieldDef.type !== 'currency') {
+                    input.value = value || '';
+                }
+
+                // Event Listener for typing
+                if(fieldDef.type === 'currency') {
+                    input.oninput = () => formatCurrencyInput(input);
+                } else {
+                    input.onchange = (e) => { appState.pendingUpdates[e.target.name] = e.target.value; };
+                }
+
+                wrapper.appendChild(input);
+            }
+
+            return wrapper;
+        }
+
+        // ==========================================
+        // FILE UPLOAD & COMPRESSION
+        // ==========================================
+        async function processFileUpload(fileInput, fieldDef) {
+            if (fileInput.files.length === 0) {
+                Swal.fire('Perhatian', 'Pilih file terlebih dahulu!', 'warning');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            
+            // Validate Max 1MB AFTER compression logic, but block if huge PDF
+            if (file.type === 'application/pdf' && file.size > 2 * 1024 * 1024) {
+                Swal.fire('Ukuran Terlalu Besar', 'Untuk PDF mohon kompres dulu di bawah 1MB sebelum upload.', 'warning');
+                return;
+            }
+
+            showLoading('Mengkompres & Mengupload...');
+
+            try {
+                let base64Data = '';
+                // Generate file name dynamically: e.g., "Foto Profil_Ahmad.jpg"
+                let namaSiswa = appState.studentData.fields['Data Pribadi--Nama Lengkap--text'] || appState.studentData.nisn;
+                let extension = file.name.split('.').pop();
+                let cleanLabel = fieldDef.label.replace(/[^a-zA-Z0-9 ]/g, "");
+                let newFileName = `${cleanLabel}_${namaSiswa}.${extension}`;
+
+                if (file.type.startsWith('image/')) {
+                    // Compress Image using Canvas
+                    base64Data = await compressImage(file);
+                } else {
+                    // Convert PDF directly to Base64 (No client side compression for PDF)
+                    base64Data = await fileToBase64(file);
+                }
+
+                // Remove Data URI prefix (e.g., data:image/jpeg;base64,)
+                let base64String = base64Data.split(',')[1];
+
+                const payload = {
+                    action: 'uploadFile',
+                    nisn: appState.studentData.nisn,
+                    headerName: fieldDef.headerName,
+                    fileName: newFileName,
+                    mimeType: file.type,
+                    base64: base64String
+                };
+
+                const res = await fetchGAS(payload);
+                hideLoading();
+
+                if (res && res.status === 'success') {
+                    Swal.fire('Berhasil', 'Berkas berhasil disimpan ke Drive.', 'success');
+                    // Update local state
+                    appState.studentData.fields[fieldDef.headerName] = res.fileUrl;
+                    // Refresh view
+                    buildSiswaDashboard(); 
+                } else {
+                    Swal.fire('Gagal Upload', res ? res.message : 'Unknown error', 'error');
+                }
+
+            } catch (error) {
+                hideLoading();
+                console.error(error);
+                Swal.fire('Error', 'Terjadi kesalahan saat memproses file.', 'error');
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = event => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800; // Max width to compress
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        // Compress to JPEG with 0.7 quality
+                        resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    }
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // ==========================================
+        // SAVE SISWA DATA
+        // ==========================================
+        async function saveAllSiswaData() {
+            if (Object.keys(appState.pendingUpdates).length === 0) {
+                Swal.fire('Info', 'Tidak ada perubahan data yang perlu disimpan.', 'info');
+                return;
+            }
+
+            showLoading('Menyimpan Data...');
+            const res = await fetchGAS({
+                action: 'updateData',
+                nisn: appState.studentData.nisn,
+                updates: appState.pendingUpdates
+            });
+            hideLoading();
+
+            if (res && res.status === 'success') {
+                Swal.fire('Berhasil', 'Data berhasil diperbarui.', 'success');
+                // Update local state so it doesn't revert
+                for(let key in appState.pendingUpdates){
+                    appState.studentData.fields[key] = appState.pendingUpdates[key];
+                }
+                appState.pendingUpdates = {}; // Clear pending
+            } else {
+                Swal.fire('Gagal', res ? res.message : 'Koneksi bermasalah', 'error');
+            }
+        }
+
+        // ==========================================
+        // GURU DASHBOARD LOGIC
+        // ==========================================
+        function buildGuruDashboard() {
+            renderListSiswa(appState.allStudents);
+        }
+
+        function filterSiswa() {
+            const query = document.getElementById('search-siswa').value.toLowerCase();
+            const filtered = appState.allStudents.filter(stu => {
+                // Cari dari NISN atau value form (biasanya ada nama lengkap)
+                let matchString = stu.nisn.toString().toLowerCase();
+                for(let key in stu.fields){
+                    if(stu.fields[key]) matchString += " " + stu.fields[key].toString().toLowerCase();
+                }
+                return matchString.includes(query);
+            });
+            renderListSiswa(filtered);
+        }
+
+        function renderListSiswa(list) {
+            const container = document.getElementById('list-siswa');
+            container.innerHTML = '';
+
+            if (list.length === 0) {
+                container.innerHTML = '<div class="p-6 text-center text-gray-500">Tidak ada siswa ditemukan.</div>';
+                return;
+            }
+
+            list.forEach(stu => {
+                // Try to find Name field
+                let nama = "Nama Tidak Diketahui";
+                for(let key in stu.fields){
+                    if(key.toLowerCase().includes('nama')) {
+                        nama = stu.fields[key] || nama; break;
+                    }
+                }
+
+                const item = document.createElement('div');
+                item.className = 'p-4 bg-white hover:bg-gray-50 cursor-pointer flex justify-between items-center transition';
+                item.onclick = () => openDetailSiswa(stu.nisn);
+                
+                const statusBadge = (stu.status||'').toLowerCase() === 'alumni' 
+                    ? `<span class="text-xs bg-gray-200 px-2 py-0.5 rounded ml-2">Alumni</span>`
+                    : `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded ml-2">Aktif</span>`;
+
+                item.innerHTML = `
+                    <div>
+                        <p class="font-bold text-gray-800">${nama} ${statusBadge}</p>
+                        <p class="text-sm text-gray-500">NISN: ${stu.nisn}</p>
+                    </div>
+                    <i class="fas fa-chevron-right text-gray-400"></i>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function openDetailSiswa(nisn) {
+            const student = appState.allStudents.find(s => s.nisn === nisn);
+            if (!student) return;
+
+            const container = document.getElementById('detail-siswa-content');
+            const printContainer = document.getElementById('print-content');
+            container.innerHTML = '';
+            printContainer.innerHTML = '';
+
+            // Group by Tab
+            const tabsMap = {};
+            appState.formStructure.forEach(field => {
+                if(!tabsMap[field.tab]) tabsMap[field.tab] = [];
+                tabsMap[field.tab].push(field);
+            });
+
+            // Extract Photo for Print Layout
+            let photoUrl = '';
+            
+            for (let tabName in tabsMap) {
+                // --- For Screen ---
+                const section = document.createElement('div');
+                section.className = 'mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100';
+                section.innerHTML = `<h3 class="font-bold text-lg text-blue-800 border-b pb-2 mb-3"><i class="fas fa-folder-open mr-2"></i>${tabName}</h3>`;
+                
+                // --- For Print ---
+                const printSection = document.createElement('div');
+                printSection.className = 'cv-section';
+                printSection.innerHTML = `<div class="cv-section-title">${tabName}</div>`;
+
+                tabsMap[tabName].forEach(field => {
+                    let val = student.fields[field.headerName] || '-';
+                    
+                    // Format output
+                    let displayVal = val;
+                    if(field.type === 'currency' && val !== '-') {
+                        displayVal = "Rp " + new Intl.NumberFormat('id-ID').format(val);
+                    }
+
+                    // For Screen rendering
+                    const row = document.createElement('div');
+                    row.className = 'mb-3 flex flex-col sm:flex-row sm:justify-between border-b border-dashed border-gray-100 pb-2';
+                    
+                    let valHtml = `<span class="text-gray-800 font-medium">${displayVal}</span>`;
+                    
+                    if (field.type === 'file' && val !== '-') {
+                        if(field.label.toLowerCase().includes('foto')) photoUrl = val; // save for print
+                        valHtml = `<a href="${val}" target="_blank" class="text-blue-600 underline text-sm"><i class="fas fa-external-link-alt"></i> Lihat Berkas</a>`;
+                    } else if (field.type === 'phone' && val !== '-') {
+                        // Remove apostrophe if exists from Google Sheet
+                        let cleanPhone = val.toString().replace("'", "");
+                        // Format for wa.me (replace starting 0 with 62)
+                        let waNumber = cleanPhone.startsWith('0') ? '62' + cleanPhone.substring(1) : cleanPhone;
+                        valHtml = `
+                            <span class="text-gray-800 font-medium">${cleanPhone}</span>
+                            <a href="https://wa.me/${waNumber}" target="_blank" class="ml-2 bg-green-500 text-white px-2 py-1 rounded text-xs no-print"><i class="fab fa-whatsapp"></i> Chat</a>
+                        `;
+                    }
+
+                    row.innerHTML = `<span class="text-sm text-gray-500 uppercase tracking-wider">${field.label}</span> ${valHtml}`;
+                    section.appendChild(row);
+
+                    // For Print Rendering (only non-files or basic files)
+                    if(field.type !== 'file' || field.label.toLowerCase().includes('foto')){
+                        const pRow = document.createElement('div');
+                        pRow.className = 'cv-row';
+                        pRow.innerHTML = `<div class="cv-label">${field.label}</div><div class="cv-value">: ${field.type === 'file' ? 'Terlampir' : displayVal}</div>`;
+                        printSection.appendChild(pRow);
+                    }
+                });
+
+                container.appendChild(section);
+                printContainer.appendChild(printSection);
+            }
+
+            // Insert Photo to Print Layout if exists
+            if(photoUrl){
+                const img = document.createElement('img');
+                img.src = photoUrl;
+                img.className = 'cv-photo';
+                printContainer.insertBefore(img, printContainer.firstChild);
+            }
+
+            document.getElementById('view-guru').classList.add('hidden');
+            document.getElementById('view-guru-detail').classList.remove('hidden');
+            window.scrollTo(0,0);
+        }
+
+        function closeDetailSiswa() {
+            document.getElementById('view-guru-detail').classList.add('hidden');
+            document.getElementById('view-guru').classList.remove('hidden');
+        }
+
+        // Initialize Tab
+        switchLoginTab('siswa');
+
+    </script>
+</body>
+</html>
