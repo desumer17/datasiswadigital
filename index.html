@@ -88,7 +88,7 @@
                     <h1 class="text-lg font-bold flex items-center">
                         <i class="fas fa-graduation-cap mr-2 text-2xl"></i>Data Siswa Digital
                     </h1>
-                    <p class="text-sm text-blue-100 font-medium ml-8 mt-0.5">SD Negeri 17 Dauh Puri</p>
+                    <p class="text-sm text-blue-100 font-medium ml-10 mt-0.5">SD Negeri 17 Dauh Puri</p>
                 </div>
                 <button id="btn-logout" class="hidden text-sm hover:bg-blue-800 transition bg-blue-700 px-3 py-2 rounded-lg shadow" onclick="konfirmasiKeluar()">
                     <i class="fas fa-sign-out-alt"></i> Keluar
@@ -183,7 +183,7 @@
                         <input type="text" id="search-siswa" onkeyup="filterSiswa()" class="w-full border rounded-lg pl-10 p-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Cari nama atau NISN...">
                     </div>
                     <!-- TOMBOL UNDUH EXCEL -->
-                    <button onclick="exportKeExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 rounded-lg shadow whitespace-nowrap" title="Unduh Excel">
+                    <button onclick="exportKeExcel()" class="hidden bg-green-600 hover:bg-green-700 text-white px-4 rounded-lg shadow whitespace-nowrap" title="Unduh Excel">
                         <i class="fas fa-file-excel"></i>
                     </button>
                 </div>
@@ -349,37 +349,14 @@
         // EXPORT TO EXCEL DARI DATA GOOGLE SHEET
         // ==========================================
         function exportKeExcel() {
-            if(!appState.allStudents || appState.allStudents.length === 0) {
-                Swal.fire('Info', 'Tidak ada data siswa untuk diunduh.', 'info');
-                return;
-            }
-            let csv = [];
+            // Masukkan ID Spreadsheet CERMINAN Anda di sini
+            const spreadsheetId = "1RhCmajxo2rLsyOVFYtWk-G80F5IBtfv2dzE1syIchRw"; 
             
-            // Buat Header berdasar struktur Google Sheet
-            let headers = ['NISN', 'Tanggal Lahir', 'Status'];
-            appState.formStructure.forEach(f => headers.push(f.headerName));
-            csv.push(headers.map(h => `"${h}"`).join(','));
-
-            // Isi Data
-            appState.allStudents.forEach(stu => {
-                let row = [stu.nisn, stu.tglLahir, stu.status];
-                appState.formStructure.forEach(f => {
-                    let val = stu.fields[f.headerName] || '';
-                    val = val.toString().replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, '""');
-                    row.push(`"${val}"`);
-                });
-                csv.push(row.join(','));
-            });
-
-            // Trigger Download
-            let csvContent = "data:text/csv;charset=utf-8," + csv.join("\n");
-            let encodedUri = encodeURI(csvContent);
-            let link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "Data_Siswa_SDN17_Dauh_Puri.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Format URL ekspor otomatis Google Sheets ke Excel
+            const downloadUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
+            
+            // Membuka tautan unduhan di tab baru (otomatis terdownload sebagai file .xlsx yang rapi)
+            window.open(downloadUrl, '_blank');
         }
 
         // ==========================================
@@ -463,7 +440,8 @@
                 let namaSiswa = "Siswa";
                 // Cari Nama Siswa untuk penamaan file
                 for (let key in appState.studentData.fields) {
-                    if (key.toLowerCase().includes('nama')) {
+                    let keyLower = key.toLowerCase();
+                    if (keyLower === 'nama lengkap' || keyLower === 'nama') {
                         namaSiswa = appState.studentData.fields[key] || appState.studentData.nisn;
                         break;
                     }
@@ -580,7 +558,11 @@
                         let match = val.toString().match(/\/d\/(.+?)\//);
                         fotoUrl = match ? `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200` : val;
                     }
-                    if (keyLower.includes('nama')) {
+                    // Pencarian nama yang lebih presisi
+                    if (keyLower === 'nama lengkap' || keyLower === 'nama') {
+                        namaSiswa = val;
+                    } else if (keyLower.includes('nama') && namaSiswa === 'Tanpa Nama') {
+                        // Fallback jika tidak ada kolom 'nama lengkap'
                         namaSiswa = val;
                     }
                 }
@@ -781,8 +763,22 @@
             list.forEach(stu => {
                 let nama = "Tanpa Nama", kelas = "-";
                 for(let key in stu.fields){
-                    if(key.toLowerCase().includes('nama')) nama = stu.fields[key] || nama;
-                    if(key.toLowerCase().includes('kelas')) kelas = stu.fields[key] || kelas;
+                    let keyLower = key.toLowerCase();
+                    let val = stu.fields[key] ? stu.fields[key].toString() : '';
+                    
+                    // Filter Nama Lengkap
+                    if(keyLower === 'nama lengkap' || keyLower === 'nama') {
+                        nama = val || nama;
+                    } else if(keyLower.includes('nama') && nama === 'Tanpa Nama') {
+                        nama = val || nama;
+                    }
+                    
+                    // Filter Kelas (Abaikan jika isinya berupa link / http)
+                    if(keyLower === 'kelas' || keyLower === 'kelas saat ini') {
+                        kelas = val || kelas;
+                    } else if(keyLower.includes('kelas') && !val.includes('http') && kelas === '-') {
+                        kelas = val || kelas;
+                    }
                 }
 
                 const item = document.createElement('div');
@@ -816,7 +812,15 @@
 
                 for (let key in siswa.fields) {
                     let keyLower = key.toLowerCase();
-                    if (keyLower.includes('kelas')) namaKelas = (siswa.fields[key] || '-').toString().trim().toUpperCase();
+                    // Pastikan yang diambil murni kelas, bukan link tugas
+                    if (keyLower === 'kelas' || keyLower === 'kelas saat ini') {
+                        namaKelas = (siswa.fields[key] || '-').toString().trim().toUpperCase();
+                    } else if (keyLower.includes('kelas') && namaKelas === '-') {
+                        let valKelas = (siswa.fields[key] || '-').toString().trim();
+                        if (!valKelas.includes('http')) {
+                            namaKelas = valKelas.toUpperCase();
+                        }
+                    }
                     if (keyLower.includes('kelamin') || keyLower.includes('jk')) {
                         let valJk = (siswa.fields[key] || '').toString().trim().toUpperCase();
                         if (valJk.startsWith('L')) jk = 'L';
@@ -1034,6 +1038,26 @@
                     if (field.type === 'file' && val !== '-') {
                         if(field.label.toLowerCase().includes('foto')) photoUrl = val; 
                         valHtml = `<a href="${val}" target="_blank" class="text-blue-600 font-bold hover:underline bg-blue-50 px-2 py-1 rounded"><i class="fas fa-external-link-alt mr-1"></i> Buka Berkas</a>`;
+                    // Menggunakan \b (word boundary) agar hanya mendeteksi kata 'wa' atau 'hp' yang berdiri sendiri
+                    } else if ((field.type === 'phone' || /\bwa\b/.test(label) || /\bhp\b/.test(label) || label.includes('telepon')) && val !== '-' && val !== '') {
+                        // Bersihkan spasi atau tanda baca pada nomor agar murni angka
+                        let cleanedNo = val.toString().replace(/\D/g, '');
+                        // Ubah awalan angka 0 menjadi awalan kode negara 62
+                        if (cleanedNo.startsWith('0')) {
+                            cleanedNo = '62' + cleanedNo.substring(1);
+                        } else if (!cleanedNo.startsWith('62') && cleanedNo.length > 8) {
+                            cleanedNo = '62' + cleanedNo;
+                        }
+                        
+                        // Buat tombol HTML WhatsApp
+                        valHtml = `
+                            <div class="flex items-center gap-3">
+                                <span class="text-gray-800 font-bold">${displayVal}</span>
+                                <a href="https://wa.me/${cleanedNo}" target="_blank" class="bg-green-500 hover:bg-green-600 text-white text-[10px] px-2.5 py-1 rounded shadow-sm font-bold flex items-center gap-1.5 transition no-print">
+                                    <i class="fab fa-whatsapp text-sm"></i> Chat WA
+                                </a>
+                            </div>
+                        `;
                     }
 
                     row.innerHTML = `<span class="text-gray-500 uppercase tracking-wide text-xs mb-1 sm:mb-0">${field.label}</span> ${valHtml}`;
@@ -1054,9 +1078,25 @@
             }
 
             if(photoUrl){
+                let printPhotoUrl = photoUrl;
+                
+                // Konversi link Google Drive menggunakan Thumbnail API agar tidak diblokir
+                if (printPhotoUrl.includes('drive.google.com')) {
+                    // Cari ID unik dari link Google Drive
+                    let match = printPhotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || printPhotoUrl.match(/id=([a-zA-Z0-9_-]+)/);
+                    if (match) {
+                        // sz=w500 digunakan agar resolusi foto bagus saat dicetak
+                        printPhotoUrl = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w500`;
+                    }
+                }
+
                 const img = document.createElement('img');
-                img.src = photoUrl;
+                img.src = printPhotoUrl;
                 img.className = 'cv-photo';
+                
+                // Pastikan foto proporsional
+                img.style.objectFit = 'cover';
+                
                 printContainer.insertBefore(img, printContainer.firstChild);
             }
 
@@ -1073,8 +1113,8 @@
         switchLoginTab('siswa');
 
     </script>
+<footer class="w-full text-center py-4 mt-6 text-gray-500 text-xs sm:text-sm border-t border-gray-200 no-print">
+        <p>Copyright &copy; 2026 <strong>3D Creative</strong>. All rights reserved.</p>
+    </footer>
 </body>
 </html>
-
-
-```
