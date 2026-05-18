@@ -826,10 +826,11 @@
                         if (valJk.startsWith('L')) jk = 'L';
                         if (valJk.startsWith('P')) jk = 'P';
                     }
-                    if (keyLower.includes('agama')) {
-                        agama = (siswa.fields[key] || 'Lainnya').toString().trim();
-                        if(agama !== '-' && agama !== '') setAgama.add(agama);
-                    }
+                    // Tambahkan pengecekan agar tidak membaca agama ayah dan ibu
+                 if (keyLower.includes('agama') && !keyLower.includes('ayah') && !keyLower.includes('ibu') && !keyLower.includes('wali')) {
+                     agama = (siswa.fields[key] || 'Lainnya').toString().trim();
+                     if(agama !== '-' && agama !== '') setAgama.add(agama);
+                 }
                 }
 
                 let matchTingkat = namaKelas.match(/\d+/);
@@ -1113,8 +1114,8 @@
         switchLoginTab('siswa');
 
     </script>
-<footer class="w-full text-center py-4 mt-6 text-gray-500 text-xs sm:text-sm border-t border-gray-200 no-print">
+        <footer class="w-full text-center py-4 mt-6 text-gray-500 text-xs sm:text-sm border-t border-gray-200 no-print">
         <p>Copyright &copy; 2026 <strong>3D Creative</strong>. All rights reserved.</p>
-    </footer>
+        </footer>
 </body>
 </html>
