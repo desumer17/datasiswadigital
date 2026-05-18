@@ -396,6 +396,67 @@
                 appState.pendingUpdates = {};
                 buildSiswaDashboard();
                 switchView('view-siswa');
+		// ========================================================
+                // FITUR OTOMATIS: LOCK & UNLOCK DATA (MEMANFAATKAN KOLOM STATUS)
+                // ========================================================
+                setTimeout(() => {
+                    let student = appState.studentData;
+                    if(!student) return;
+
+                    // 1. Cukup ambil data dari kolom 'Status' yang sudah terbukti dikirim oleh server
+                    let statusSiswa = (student.status || student.fields['Status'] || '').toString().toUpperCase().trim();
+                    
+                    // 2. KONDISI KUNCI: Sembunyikan form jika kolom Status mengandung kata 'ALUMNI' atau 'LOCK'
+                    let isLocked = (statusSiswa.includes('ALUMNI') || statusSiswa.includes('LOCK'));
+
+                    // 3. Eksekusi Penguncian Form
+                    const tombolSimpan = document.querySelector('#view-siswa button[onclick*="pemicuSimpanData"], #view-siswa button[onclick*="saveAllSiswaData"]');
+                    const semuaInput = document.querySelectorAll('#view-siswa input, #view-siswa select, #view-siswa textarea');
+
+                    if (isLocked) {
+                        // KUNCI FORM
+                        if (tombolSimpan) tombolSimpan.style.display = 'none';
+                        
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Akses Terkunci',
+                            text: statusSiswa.includes('ALUMNI') 
+                                  ? 'Status Anda ALUMNI. Data sudah permanen dan tidak bisa diubah.' 
+                                  : 'Data Anda telah diverifikasi dan dikunci. Anda hanya diizinkan melihat data.',
+                            confirmButtonColor: '#d33'
+                        });
+
+                        semuaInput.forEach(input => {
+                            if(input.type !== 'hidden') { 
+                                input.disabled = true;
+                                input.classList.add('bg-gray-100', 'cursor-not-allowed', 'opacity-70');
+                            }
+                        });
+                        
+                        // Disable area dropzone untuk upload file
+                        const dropzones = document.querySelectorAll('.border-dashed');
+                        dropzones.forEach(dz => {
+                            dz.style.pointerEvents = 'none';
+                            dz.classList.add('opacity-50');
+                        });
+                        
+                    } else {
+                        // BUKA FORM (UNLOCK)
+                        if (tombolSimpan) tombolSimpan.style.display = 'block';
+                        semuaInput.forEach(input => {
+                            input.disabled = false;
+                            input.classList.remove('bg-gray-100', 'cursor-not-allowed', 'opacity-70');
+                        });
+                        
+                        const dropzones = document.querySelectorAll('.border-dashed');
+                        dropzones.forEach(dz => {
+                            dz.style.pointerEvents = 'auto';
+                            dz.classList.remove('opacity-50');
+                        });
+                    }
+                }, 800); 
+                // ================= AKHIR FITUR LOCK ====================
+
             } else {
                 Swal.fire('Gagal', (res && res.message) ? res.message : 'Koneksi gagal atau data tidak ditemukan.', 'error');
             }
