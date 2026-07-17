@@ -183,10 +183,10 @@
                         <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
                         <input type="text" id="search-siswa" onkeyup="filterSiswa()" class="w-full border rounded-lg pl-10 p-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Cari nama atau NISN...">
                     </div>
-                    <!-- TOMBOL UNDUH EXCEL -->
-                    <button onclick="exportKeExcel()" class="hidden bg-green-600 hover:bg-green-700 text-white px-4 rounded-lg shadow whitespace-nowrap" title="Unduh Excel">
-                        <i class="fas fa-file-excel"></i>
-                    </button>
+<!-- TOMBOL LIHAT DATA SHEETS -->
+<button onclick="lihatDataSheet()" class="bg-green-600 hover:bg-green-700 text-white px-4 rounded-lg shadow whitespace-nowrap" title="Lihat Database di Sheets">
+    <i class="fas fa-external-link-alt"></i>
+</button>
                 </div>
             </div>
             
@@ -346,19 +346,20 @@
             return '';
         }
 
-        // ==========================================
-        // EXPORT TO EXCEL DARI DATA GOOGLE SHEET
-        // ==========================================
-        function exportKeExcel() {
-            // Masukkan ID Spreadsheet CERMINAN Anda di sini
-            const spreadsheetId = "1RhCmajxo2rLsyOVFYtWk-G80F5IBtfv2dzE1syIchRw"; 
-            
-            // Format URL ekspor otomatis Google Sheets ke Excel
-            const downloadUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
-            
-            // Membuka tautan unduhan di tab baru (otomatis terdownload sebagai file .xlsx yang rapi)
-            window.open(downloadUrl, '_blank');
-        }
+
+// ==========================================
+// LIHAT DATA LANGSUNG DI GOOGLE SHEET
+// ==========================================
+function lihatDataSheet() {
+    // Masukkan ID Spreadsheet CERMINAN Anda di sini
+    const spreadsheetId = "1RhCmajxo2rLsyOVFYtWk-G80F5IBtfv2dzE1syIchRw"; 
+    
+    // Format URL untuk membuka Google Sheets di browser (bukan untuk didownload)
+    const viewUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+    
+    // Membuka tautan Google Sheets di tab baru
+    window.open(viewUrl, '_blank');
+}
 
         // ==========================================
         // API COMMUNICATION (KE GOOGLE APPS SCRIPT)
